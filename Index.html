@@ -2,190 +2,179 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3D Basketball Game</title>
+<title>5v5 Browser Basketball Game</title>
 <style>
-  body { margin: 0; overflow: hidden; font-family: sans-serif; }
-  #scoreboard {
-    position: absolute; top: 10px; left: 10px;
-    background: rgba(0,0,0,0.5); color: white;
-    padding: 10px; border-radius: 5px; font-size: 20px;
-  }
+body { margin:0; overflow:hidden; font-family:sans-serif; }
+#scoreboard { position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:white; padding:10px; border-radius:5px; font-size:18px; }
+#shotMeterContainer { position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:200px; height:20px; background:gray; display:none; border-radius:5px; }
+#shotMeter { height:100%; width:0; background:lime; border-radius:5px; }
+#mobileControls { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:none; }
+.btn { padding:10px 15px; margin:5px; background:rgba(0,0,0,0.6); color:white; font-size:16px; border:none; border-radius:5px; }
+#timeoutButton { position:absolute; top:50px; left:10px; padding:8px 12px; font-size:16px; }
 </style>
 </head>
 <body>
-<div id="scoreboard">Score: 0 | Time: 60</div>
+
+<div id="scoreboard">Score: 0 - 0 | Q1 | 2:00</div>
+<div id="shotMeterContainer"><div id="shotMeter"></div></div>
+<div id="mobileControls">
+  <button class="btn" id="btnUp">↑</button>
+  <button class="btn" id="btnDown">↓</button>
+  <button class="btn" id="btnLeft">←</button>
+  <button class="btn" id="btnRight">→</button>
+  <button class="btn" id="btnShoot">Shoot</button>
+  <button class="btn" id="btnPass">Pass</button>
+  <button class="btn" id="btnToggle">Toggle Controls</button>
+</div>
+<button id="timeoutButton">Timeout</button>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 
-// --- Scene setup ---
+// ------------------- SCENE SETUP -------------------
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Sky blue
-
+scene.background = new THREE.Color(0x87CEEB);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 7, 12);
+camera.position.set(0,18,28);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// --- Controls ---
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.target.set(0,1,0);
 controls.update();
 
-// --- Lights ---
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+const ambientLight = new THREE.AmbientLight(0xffffff,0.7);
 scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5,10,5);
+const directionalLight = new THREE.DirectionalLight(0xffffff,0.8);
+directionalLight.position.set(5,15,5);
 scene.add(directionalLight);
 
-// --- Court ---
-const courtGeometry = new THREE.PlaneGeometry(20,12);
-const courtMaterial = new THREE.MeshPhongMaterial({color:0x228B22});
-const court = new THREE.Mesh(courtGeometry, courtMaterial);
-court.rotation.x = -Math.PI/2;
+// ------------------- COURT & STADIUM -------------------
+const courtGeo = new THREE.PlaneGeometry(28,15);
+const courtMat = new THREE.MeshPhongMaterial({color:0x228B22});
+const court = new THREE.Mesh(courtGeo,courtMat);
+court.rotation.x=-Math.PI/2;
 scene.add(court);
 
-// Court lines
-const lineMaterial = new THREE.LineBasicMaterial({color:0xffffff});
-const lines = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-10,0.01,-6), new THREE.Vector3(10,0.01,-6), // baseline
-  new THREE.Vector3(-10,0.01,6), new THREE.Vector3(10,0.01,6),   // other baseline
-  new THREE.Vector3(-5,0.01,-6), new THREE.Vector3(-5,0.01,6),   // left side
-  new THREE.Vector3(5,0.01,-6), new THREE.Vector3(5,0.01,6)      // right side
-]);
-const lineMesh = new THREE.LineSegments(lines, lineMaterial);
-scene.add(lineMesh);
+// Crowd stands
+function addStands(){
+  const standGeo = new THREE.BoxGeometry(30,3,2);
+  const standMat = new THREE.MeshPhongMaterial({color:0x888888});
+  const leftStand = new THREE.Mesh(standGeo,standMat);
+  leftStand.position.set(0,1.5,-11);
+  scene.add(leftStand);
+  const rightStand = new THREE.Mesh(standGeo,standMat);
+  rightStand.position.set(0,1.5,11);
+  scene.add(rightStand);
+}
+addStands();
 
-// --- Hoop & backboard ---
-const hoopGeometry = new THREE.TorusGeometry(0.5,0.05,16,100);
-const hoopMaterial = new THREE.MeshPhongMaterial({color:0xff0000});
-const hoop = new THREE.Mesh(hoopGeometry, hoopMaterial);
-hoop.position.set(0,3,-5);
-hoop.rotation.x = Math.PI/2;
-scene.add(hoop);
+// Hoops
+function createHoop(z){
+  const hoopGeo = new THREE.TorusGeometry(0.5,0.05,16,100);
+  const hoopMat = new THREE.MeshPhongMaterial({color:0xff0000});
+  const hoop = new THREE.Mesh(hoopGeo,hoopMat);
+  hoop.position.set(0,3,z);
+  hoop.rotation.x=Math.PI/2;
+  scene.add(hoop);
 
-// Backboard
-const backboardGeometry = new THREE.BoxGeometry(1.5,1,0.1);
-const backboardMaterial = new THREE.MeshPhongMaterial({color:0xffffff});
-const backboard = new THREE.Mesh(backboardGeometry, backboardMaterial);
-backboard.position.set(0,3.5,-5.25);
-scene.add(backboard);
+  const backGeo = new THREE.BoxGeometry(1.5,1,0.1);
+  const backMat = new THREE.MeshPhongMaterial({color:0xffffff});
+  const backboard = new THREE.Mesh(backGeo,backMat);
+  backboard.position.set(0,3.5,z+Math.sign(z)*0.25);
+  scene.add(backboard);
 
-// --- Player ---
-const playerGeometry = new THREE.BoxGeometry(0.5,1.8,0.5);
-const playerMaterial = new THREE.MeshPhongMaterial({color:0x0000ff});
-const player = new THREE.Mesh(playerGeometry, playerMaterial);
-player.position.set(0,0.9,5);
-scene.add(player);
+  return hoop;
+}
+const hoop1 = createHoop(-7); // Top
+const hoop2 = createHoop(7);  // Bottom
 
-// --- Ball ---
-const ballGeometry = new THREE.SphereGeometry(0.25,32,32);
-const ballMaterial = new THREE.MeshPhongMaterial({color:0xffa500});
-const ball = new THREE.Mesh(ballGeometry, ballMaterial);
-ball.position.set(0,0.25,4.5);
+// ------------------- PLAYERS -------------------
+function createPlayer(color,x,z){
+  const geo = new THREE.BoxGeometry(0.6,1.8,0.6);
+  const mat = new THREE.MeshPhongMaterial({color});
+  const mesh = new THREE.Mesh(geo,mat);
+  mesh.position.set(x,0.9,z);
+  scene.add(mesh);
+  return {mesh, stamina:100, hasBall:false, team:color};
+}
+
+// Teams
+const myTeam = [];
+const aiTeam = [];
+for(let i=0;i<5;i++){ myTeam.push(createPlayer(0x0000ff,-6+3*i,6)); }
+for(let i=0;i<5;i++){ aiTeam.push(createPlayer(0xff0000,-6+3*i,-6)); }
+
+// ------------------- BALL -------------------
+const ballGeo = new THREE.SphereGeometry(0.25,32,32);
+const ballMat = new THREE.MeshPhongMaterial({color:0xffa500});
+const ball = new THREE.Mesh(ballGeo,ballMat);
+ball.position.set(0,0.25,5);
 scene.add(ball);
 
-// Ball physics
+let ballHolder = myTeam[0];
+ballHolder.hasBall = true;
 let ballVelocity = new THREE.Vector3(0,0,0);
 const gravity = -0.02;
 
-// Keyboard input
-const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-// Game variables
-let score = 0;
-let time = 60; // seconds
+// ------------------- GAME VARIABLES -------------------
+let score = [0,0];
+let quarter = 1;
+let gameTime = 120; // 2 minutes per quarter
+let timeoutActive = false;
+let foulCounts = [0,0];
 const scoreboard = document.getElementById('scoreboard');
 
-// Shooting
-function shoot() {
-  ballVelocity.set(0,0.6,-0.4); // upward + forward
+const shotContainer = document.getElementById('shotMeterContainer');
+const shotBar = document.getElementById('shotMeter');
+let shotActive=false;
+let shotProgress=0;
+let shotDirection=1;
+
+// ------------------- MOBILE CONTROLS -------------------
+const mobileControls = document.getElementById('mobileControls');
+let mobileMode=false;
+document.getElementById('btnToggle').addEventListener('click',()=>{
+  mobileMode=!mobileMode;
+  mobileControls.style.display=mobileMode?'block':'none';
+});
+const moveDir = {x:0,z:0};
+['Up','Down','Left','Right'].forEach(dir=>{
+  document.getElementById('btn'+dir).addEventListener('mousedown',()=>{ 
+    if(dir==='Up') moveDir.z=-0.1;
+    if(dir==='Down') moveDir.z=0.1;
+    if(dir==='Left') moveDir.x=-0.1;
+    if(dir==='Right') moveDir.x=0.1;
+  });
+  document.getElementById('btn'+dir).addEventListener('mouseup',()=>{ moveDir.x=0; moveDir.z=0; });
+});
+
+// Shoot/Pass
+document.getElementById('btnShoot').addEventListener('click',()=>{ if(!shotActive) startShotMeter(); });
+document.getElementById('btnPass').addEventListener('click',passBall);
+
+// Timeout
+document.getElementById('timeoutButton').addEventListener('click',()=>{ timeoutActive=!timeoutActive; });
+
+// Keyboard
+const keys = {};
+window.addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+
+// ------------------- GAME FUNCTIONS -------------------
+// Shot meter
+function startShotMeter(){ shotActive=true; shotProgress=0; shotDirection=1; shotContainer.style.display='block'; }
+function updateShotMeter(){
+  if(!shotActive) return;
+  shotProgress += 0.02 * shotDirection;
+  if(shotProgress>=1) shotDirection=-1;
+  if(shotProgress<=0) shotDirection=1;
+  if(shotProgress>0.45 && shotProgress<0.55) shotBar.style.background='lime';
+  else if(shotProgress>0.35 && shotProgress<0.65) shotBar.style.background='yellow';
+  else shotBar.style.background='red';
+  shotBar.style.width = (shotProgress*100)+'%';
 }
-
-// Dunk animation
-let dunking = false;
-function dunk() {
-  if(!dunking && player.position.distanceTo(hoop.position) < 2) {
-    dunking = true;
-    ballVelocity.set(0,0.8,-0.1);
-  }
-}
-
-// Crowd (simple colored boxes)
-for(let i=-9;i<=9;i+=2){
-  const boxGeo = new THREE.BoxGeometry(0.5,1,0.5);
-  const boxMat = new THREE.MeshPhongMaterial({color:0xffd700});
-  const crowdBox = new THREE.Mesh(boxGeo, boxMat);
-  crowdBox.position.set(i,0.5,-7);
-  scene.add(crowdBox);
-}
-
-// --- Animation loop ---
-function animate() {
-  requestAnimationFrame(animate);
-
-  // Player movement
-  if(keys['a']) player.position.x -= 0.1;
-  if(keys['d']) player.position.x += 0.1;
-  if(keys['w']) player.position.z -= 0.1;
-  if(keys['s']) player.position.z += 0.1;
-
-  // Keep player on court
-  player.position.x = Math.max(-9, Math.min(9, player.position.x));
-  player.position.z = Math.max(-5, Math.min(5, player.position.z));
-
-  // Ball follows player if close
-  const distance = player.position.distanceTo(ball.position);
-  if(distance < 1 && !keys[' ']) {
-    ball.position.x = player.position.x;
-    ball.position.z = player.position.z - 0.5;
-    ball.position.y = 0.25;
-  }
-
-  // Shoot
-  if(keys[' ']) shoot();
-  if(keys['Shift']) dunk();
-
-  // Ball physics
-  ballVelocity.y += gravity;
-  ball.position.add(ballVelocity);
-
-  // Bounce
-  if(ball.position.y < 0.25){
-    ball.position.y = 0.25;
-    ballVelocity.y *= -0.5;
-    ballVelocity.x *= 0.9;
-    ballVelocity.z *= 0.9;
-    dunking = false;
-  }
-
-  // Check score
-  const hoopTop = new THREE.Vector3(hoop.position.x, hoop.position.y, hoop.position.z);
-  if(ball.position.y < hoopTop.y && ball.position.distanceTo(hoopTop) < 0.5 && ballVelocity.y < 0){
-    score += 2;
-    ball.position.set(player.position.x,0.25,player.position.z-0.5);
-    ballVelocity.set(0,0,0);
-  }
-
-  // Update scoreboard
-  scoreboard.innerText = `Score: ${score} | Time: ${time}`;
-
-  renderer.render(scene,camera);
-}
-
-animate();
-
-// --- Countdown timer ---
-setInterval(()=>{
-  if(time>0) time--;
-},1000);
-
-</script>
-</body>
-</html>
+function shoot
